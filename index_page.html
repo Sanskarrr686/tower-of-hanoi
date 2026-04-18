@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tower of Hanoi — Recursive vs Iterative</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0a0a0c;
+  --surface:  #111116;
+  --surface2: #18181f;
+  --surface3: #1f1f28;
+  --border:   rgba(255,255,255,0.06);
+  --border2:  rgba(255,255,255,0.11);
+  --text:     #dddde8;
+  --muted:    #5a5a70;
+  --rec:      #5b8dee;
+  --rec-dim:  #1a2540;
+  --iter:     #3ecf8e;
+  --iter-dim: #0d2e1f;
+  --gold:     #f0c040;
+  --gold-dim: #2a2010;
+  --danger:   #e85c5c;
+  --peg-col:  #222230;
+  --base-col: #1a1a26;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-disp: 'Syne', sans-serif;
+  --d1: #5b8dee; --d2: #3ecf8e; --d3: #e85c5c;
+  --d4: #f0c040; --d5: #b07ef0; --d6: #f07eb0; --d7: #70d4f0;
+}
+
+body {
+  font-family: var(--font-disp);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 1.5rem 1rem 4rem;
+  overflow-x: hidden;
+}
+
+/* dot grid bg */
+body::before {
+  content:'';
+  position:fixed; inset:0; z-index:0;
+  background-image: radial-gradient(rgba(91,141,238,0.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+}
+
+.page { position:relative; z-index:1; max-width:980px; margin:0 auto; }
+
+/* ── HEADER ── */
+header { text-align:center; margin-bottom:2rem; }
+header h1 {
+  font-size: clamp(1.5rem, 5vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -1px;
+  color: var(--text);
+  margin-bottom: .4rem;
+}
+header h1 span.rec { color: var(--rec); }
+header h1 span.vs  { color: var(--muted); font-size: 0.6em; margin: 0 .4em; }
+header h1 span.iter{ color: var(--iter); }
+header p { font-family: var(--font-mono); font-size: .72rem; color: var(--muted); }
+
+/* ── METHOD TABS ── */
+.method-tabs {
+  display: flex; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border2); border-radius: 12px;
+  padding: 5px; margin-bottom: 1.2rem;
+}
+.tab-btn {
+  flex:1; padding: 9px 0; border-radius: 8px;
+  border: none; background: transparent;
+  font-family: var(--font-mono); font-size: .75rem; font-weight: 600;
+  color: var(--muted); cursor: pointer; transition: all .2s; letter-spacing:.04em;
+}
+.tab-btn.rec.active  { background: var(--rec-dim); color: var(--rec); }
+.tab-btn.iter.active { background: var(--iter-dim); color: var(--iter); }
+.tab-btn.both.active { background: var(--gold-dim); color: var(--gold); }
+.tab-btn:not(.active):hover { color: var(--text); background: var(--surface2); }
+
+/* ── CONTROLS PANEL ── */
+.panel {
+  background: var(--surface); border: 1px solid var(--border2); border-radius: 14px;
+  padding: 1rem 1.2rem; margin-bottom: 1rem;
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+}
+.ctrl-label { font-family: var(--font-mono); font-size: .65rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+.disk-btns { display:flex; gap:4px; }
+.disk-btn {
+  width: 32px; height: 32px; border-radius: 7px;
+  border: 1px solid var(--border2); background: var(--surface2);
+  color: var(--text); font-family: var(--font-mono); font-size: .78rem;
+  cursor: pointer; transition: all .15s;
+}
+.disk-btn:hover { border-color: var(--rec); color: var(--rec); }
+.disk-btn.active { background: var(--rec); border-color: var(--rec); color: #fff; }
+.sep { width:1px; height:28px; background: var(--border2); flex-shrink:0; }
+input[type=range] {
+  -webkit-appearance:none; width:88px; height:3px;
+  background: var(--surface2); border-radius:2px; border:1px solid var(--border2); outline:none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:13px; height:13px; border-radius:50%;
+  background: var(--rec); cursor:pointer; border:2px solid var(--bg);
+}
+.spv { font-family:var(--font-mono); font-size:.7rem; color: var(--iter); min-width:14px; }
+.btn {
+  display:inline-flex; align-items:center; gap:5px;
+  padding: 7px 14px; border-radius: 7px;
+  border: 1px solid var(--border2); background: var(--surface2);
+  color: var(--text); font-family: var(--font-disp); font-size: .8rem; font-weight: 500;
+  cursor: pointer; transition: all .15s; white-space:nowrap;
+}
+.btn:hover { border-color: var(--rec); color: var(--rec); }
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity:.3; cursor:default; transform:none; }
+.btn.primary { background: var(--rec-dim); border-color: var(--rec); color: var(--rec); }
+.btn.primary:hover { background: var(--rec); color: #fff; }
+.btn.g { background: var(--iter-dim); border-color: var(--iter); color: var(--iter); }
+.btn.g:hover { background: var(--iter); color: #000; }
+
+/* ── ARENAS WRAPPER ── */
+.arenas-wrap { display: flex; gap: 12px; margin-bottom: 1rem; }
+.arenas-wrap.solo { flex-direction: column; }
+.arena-card {
+  flex:1; background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 14px; padding: 1rem 1rem .8rem; position: relative; min-width:0;
+}
+.arena-card .method-badge {
+  position: absolute; top: 10px; right: 12px;
+  font-family: var(--font-mono); font-size: .63rem; font-weight: 600;
+  padding: 3px 9px; border-radius: 20px; letter-spacing: .07em;
+}
+.arena-card .method-badge.rec  { background: var(--rec-dim); color: var(--rec); border:1px solid var(--rec); }
+.arena-card .method-badge.iter { background: var(--iter-dim); color: var(--iter); border:1px solid var(--iter); }
+.arena { display:flex; justify-content:space-around; align-items:flex-end; gap:4px; padding-bottom:0; }
+.peg-col { display:flex; flex-direction:column; align-items:center; flex:1; }
+.peg-name { font-family:var(--font-mono); font-size:.62rem; color: var(--muted); margin-bottom:7px; }
+.peg-name span { display:inline-block; background: var(--surface2); border:1px solid var(--border2); border-radius:4px; padding:2px 7px; }
+.peg-stack { position:relative; display:flex; flex-direction:column-reverse; align-items:center; width:100%; min-height:190px; justify-content:flex-start; }
+.peg-rod { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:7px; background: var(--peg-col); border-radius:4px 4px 0 0; height:180px; z-index:0; }
+.peg-base { width:82%; height:9px; background: var(--base-col); border-radius:5px; border:1px solid var(--border2); }
+.disk { position:relative; z-index:1; height:23px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:.62rem; font-weight:600; color:rgba(0,0,0,.65); margin:2px 0; }
+.disk.hl { box-shadow: 0 0 0 2px #fff, 0 0 12px rgba(255,255,255,.35); transform:scaleY(1.1); }
+
+/* ── STATS ── */
+.stats { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:1rem; }
+.stat { background: var(--surface); border:1px solid var(--border); border-radius:10px; padding:9px 14px; flex:1; min-width:90px; }
+.stat .val { font-family:var(--font-mono); font-size:1.25rem; font-weight:600; line-height:1; }
+.stat .val.r { color: var(--rec); }
+.stat .val.g { color: var(--iter); }
+.stat .val.y { color: var(--gold); }
+.stat .lbl { font-size:.62rem; color: var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-top:4px; font-family:var(--font-mono); }
+
+/* ── STEP INFO ── */
+.info-row { display:flex; gap:8px; margin-bottom:1rem; flex-wrap:wrap; }
+.info-box {
+  flex:1; min-width:200px; background: var(--surface); border:1px solid var(--border);
+  border-radius:9px; padding:9px 13px; font-family:var(--font-mono); font-size:.72rem;
+  color: var(--muted); min-height:38px; line-height:1.7;
+}
+.info-box strong { color: var(--iter); }
+.info-box.rec-info strong { color: var(--rec); }
+.info-box code { background: var(--surface2); border:1px solid var(--border2); border-radius:3px; padding:1px 5px; color: var(--gold); font-size:.68rem; }
+
+/* ── COMPARISON GRAPH ── */
+.graph-card {
+  background: var(--surface); border:1px solid var(--border2); border-radius:14px;
+  padding:1.2rem 1.4rem; margin-bottom:1rem;
+}
+.graph-title { font-size:.72rem; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.1em; color: var(--muted); margin-bottom:1rem; }
+.chart-wrap { position:relative; }
+canvas#compChart { width:100% !important; }
+.legend { display:flex; gap:20px; margin-top:.8rem; flex-wrap:wrap; }
+.legend-item { display:flex; align-items:center; gap:7px; font-family:var(--font-mono); font-size:.68rem; color: var(--muted); }
+.legend-dot { width:10px; height:10px; border-radius:2px; }
+
+/* ── METHOD EXPLAINER ── */
+.explainer { display:flex; gap:10px; margin-bottom:1rem; flex-wrap:wrap; }
+.exp-card {
+  flex:1; min-width:240px; background: var(--surface); border:1px solid var(--border2);
+  border-radius:12px; padding:1rem 1.1rem;
+}
+.exp-card h3 { font-size:.75rem; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.1em; margin-bottom:.6rem; }
+.exp-card.rec-c  h3 { color: var(--rec); }
+.exp-card.iter-c h3 { color: var(--iter); }
+.exp-card p { font-size:.75rem; color: var(--muted); line-height:1.7; margin-bottom:.6rem; }
+.exp-card pre { background: var(--surface2); border:1px solid var(--border2); border-radius:7px; padding:.7rem .9rem; font-family:var(--font-mono); font-size:.67rem; color: var(--text); line-height:1.8; overflow-x:auto; }
+.exp-card pre .k { color: var(--rec); }
+.exp-card pre .c { color: var(--muted); }
+.exp-card pre .s { color: var(--iter); }
+.exp-card pre .f { color: var(--gold); }
+
+/* ── DONE OVERLAY ── */
+#done-overlay {
+  display:none; position:absolute; inset:0; border-radius:14px;
+  background:rgba(10,10,12,.88); backdrop-filter:blur(4px);
+  align-items:center; justify-content:center; flex-direction:column; gap:10px; z-index:10;
+}
+#done-overlay.show { display:flex; }
+.done-title { font-size:1.1rem; font-weight:700; color: var(--iter); }
+.done-sub { font-size:.75rem; color: var(--muted); text-align:center; line-height:1.7; }
+
+/* ── LOG ── */
+.log-card { background: var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.log-hdr { display:flex; align-items:center; justify-content:space-between; padding:8px 14px; border-bottom:1px solid var(--border); font-family:var(--font-mono); font-size:.65rem; color: var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+.logs-wrap { display:flex; gap:0; }
+.log-col { flex:1; }
+.log-col-hdr { padding:5px 12px; font-family:var(--font-mono); font-size:.62rem; font-weight:600; border-bottom:1px solid var(--border); }
+.log-col-hdr.rec  { color: var(--rec); background: var(--rec-dim); }
+.log-col-hdr.iter { color: var(--iter); background: var(--iter-dim); border-left:1px solid var(--border); }
+.log-area { max-height:110px; overflow-y:auto; padding:6px 12px; font-family:var(--font-mono); font-size:.67rem; line-height:1.9; color: var(--muted); }
+.log-area::-webkit-scrollbar { width:3px; }
+.log-area::-webkit-scrollbar-thumb { background: var(--border2); border-radius:2px; }
+.log-line.cur-r { color: var(--rec); }
+.log-line.cur-g { color: var(--iter); }
+.log-area.iter-area { border-left:1px solid var(--border); }
+
+/* ── SPACE COMPLEXITY GRAPH ── */
+.space-graph-card {
+  background: var(--surface); border:1px solid var(--border2); border-radius:14px;
+  padding:1.2rem 1.4rem; margin-bottom:1rem;
+}
+.space-graph-title {
+  font-size:.72rem; font-family:var(--font-mono); text-transform:uppercase;
+  letter-spacing:.1em; color: var(--muted); margin-bottom:.6rem;
+}
+.space-justification {
+  background: var(--surface2); border:1px solid var(--border2); border-radius:9px;
+  padding:.9rem 1.1rem; margin-top:.9rem;
+  font-family:var(--font-mono); font-size:.71rem; line-height:1.85; color: var(--muted);
+}
+.space-justification strong { color: var(--gold); }
+.space-justification .tag-r { color: var(--rec); }
+.space-justification .tag-g { color: var(--iter); }
+.space-legend { display:flex; gap:20px; margin-top:.75rem; flex-wrap:wrap; }
+.space-legend-item { display:flex; align-items:center; gap:7px; font-family:var(--font-mono); font-size:.68rem; color: var(--muted); }
+/* ── FOOTER ── */
+footer.site-footer {
+  margin-top: 2.5rem;
+  padding: 1.1rem 1.4rem;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  color: var(--muted);
+  line-height: 1.9;
+}
+footer.site-footer .footer-title {
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--rec);
+  letter-spacing: .06em;
+  margin-bottom: .3rem;
+}
+footer.site-footer .footer-names {
+  color: var(--iter);
+  font-weight: 600;
+}
+footer.site-footer .footer-college {
+  color: var(--gold);
+  font-weight: 600;
+}
+footer.site-footer .footer-copy {
+  color: var(--muted);
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <h1><span class="rec">Recursive</span><span class="vs">VS</span><span class="iter">Iterative</span></h1>
+  <p>// Tower of Hanoi · two methods · live comparison · up to 7 disks</p>
+</header>
+
+<!-- Method tabs -->
+<div class="method-tabs">
+  <button class="tab-btn rec active" onclick="setMode('rec')">Recursive only</button>
+  <button class="tab-btn iter" onclick="setMode('iter')">Iterative only</button>
+  <button class="tab-btn both" onclick="setMode('both')">Both side-by-side</button>
+</div>
+
+<!-- Controls -->
+<div class="panel">
+  <div style="display:flex;flex-direction:column;gap:3px">
+    <span class="ctrl-label">Disks</span>
+    <div class="disk-btns" id="disk-btns">
+      <button class="disk-btn" onclick="setN(2)">2</button>
+      <button class="disk-btn active" onclick="setN(3)">3</button>
+      <button class="disk-btn" onclick="setN(4)">4</button>
+      <button class="disk-btn" onclick="setN(5)">5</button>
+      <button class="disk-btn" onclick="setN(6)">6</button>
+      <button class="disk-btn" onclick="setN(7)">7</button>
+    </div>
+  </div>
+  <div class="sep"></div>
+  <div style="display:flex;flex-direction:column;gap:3px">
+    <span class="ctrl-label">Speed</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:.65rem;color:var(--muted)">slow</span>
+      <input type="range" id="speed" min="1" max="10" value="5" step="1" oninput="document.getElementById('spv').textContent=this.value">
+      <span style="font-size:.65rem;color:var(--muted)">fast</span>
+      <span class="spv" id="spv">5</span>
+    </div>
+  </div>
+  <div class="sep"></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <button class="btn primary" id="solve-btn" onclick="startSolve()">▶ Solve</button>
+    <button class="btn" id="step-btn" onclick="doStep()">Step →</button>
+    <button class="btn" id="reset-btn" onclick="init()">↺ Reset</button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat"><div class="val r" id="s-rmoves">0</div><div class="lbl">Recursive moves</div></div>
+  <div class="stat"><div class="val g" id="s-imoves">0</div><div class="lbl">Iterative moves</div></div>
+  <div class="stat"><div class="val y" id="s-total">7</div><div class="lbl">Total (2ⁿ−1)</div></div>
+  <div class="stat"><div class="val r" id="s-rdepth">0</div><div class="lbl">Rec depth</div></div>
+  <div class="stat"><div class="val" id="s-pct" style="color:var(--text)">0%</div><div class="lbl">Progress</div></div>
+</div>
+
+<!-- Arenas -->
+<div class="arenas-wrap" id="arenas-wrap">
+  <div class="arena-card" id="rec-card">
+    <span class="method-badge rec">RECURSIVE</span>
+    <div class="arena" id="arena-rec"></div>
+    <div id="done-overlay" class=""><div class="done-title" id="done-title">✓ Done!</div><div class="done-sub" id="done-sub"></div><button class="btn g" onclick="init()">↺ Again</button></div>
+  </div>
+  <div class="arena-card" id="iter-card" style="display:none">
+    <span class="method-badge iter">ITERATIVE</span>
+    <div class="arena" id="arena-iter"></div>
+  </div>
+</div>
+
+<!-- Step info -->
+<div class="info-row">
+  <div class="info-box rec-info" id="info-rec">Press <strong>▶ Solve</strong> to animate the recursive method.</div>
+  <div class="info-box" id="info-iter" style="display:none">Iterative method info will appear here.</div>
+</div>
+
+<!-- Comparison Graph -->
+<div class="graph-card">
+  <div class="graph-title">// Complexity comparison graph — moves vs disk count</div>
+  <div class="chart-wrap">
+    <canvas id="compChart" height="240"></canvas>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--rec)"></div>Recursive — O(2ⁿ)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--iter)"></div>Iterative — O(2ⁿ) same moves</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--gold)"></div>Recursive call stack depth — O(n)</div>
+    <div class="legend-item" style="margin-left:auto;font-size:.62rem;color:var(--muted)">★ current n highlighted</div>
+  </div>
+</div>
+
+<!-- Space Complexity Graph -->
+<div class="space-graph-card">
+  <div class="space-graph-title">// Space complexity — auxiliary memory vs disk count</div>
+  <div class="chart-wrap">
+    <canvas id="spaceChart" height="240"></canvas>
+  </div>
+  <div class="space-legend">
+    <div class="space-legend-item"><div class="legend-dot" style="background:var(--rec)"></div>Recursive — implicit call stack O(n)</div>
+    <div class="space-legend-item"><div class="legend-dot" style="background:var(--iter)"></div>Iterative — no stack, O(1) constant space</div>
+    <div class="space-legend-item" style="margin-left:auto;font-size:.62rem;color:var(--muted)">★ current n highlighted</div>
+  </div>
+  <div class="space-justification">
+    <strong>Why space complexity differs between the two approaches:</strong><br>
+    <span class="tag-r">Recursive — O(n):</span> Every call to <code style="background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:1px 5px;color:var(--gold);font-size:.68rem">hanoi(k)</code> is suspended while its two sub-calls run, so the OS call stack accumulates exactly <em>n</em> live frames simultaneously at maximum depth — one per level of recursion. This unavoidable overhead grows linearly with disk count, giving <strong style="color:var(--rec)">O(n)</strong> auxiliary space.<br>
+    <span class="tag-g">Iterative — O(1):</span> The true iterative solution exploits a mathematical pattern: on step <em>t</em>, move disk <code style="background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:1px 5px;color:var(--gold);font-size:.68rem">v₂(t)</code> (the 2-adic valuation of the step number) between pegs determined by parity. Only a handful of integer variables are needed regardless of <em>n</em>, so auxiliary space stays at <strong style="color:var(--iter)">O(1)</strong> — flat and constant.<br>
+    <strong style="color:var(--gold)">Key insight:</strong> The recursive call stack is the hidden cost — eliminating it entirely (not just making it explicit) is what achieves true O(1) space in the iterative approach.
+  </div>
+</div>
+
+<!-- Method explainers -->
+<div class="explainer">
+  <div class="exp-card rec-c">
+    <h3>Recursive method</h3>
+    <p>Divides the problem: move n−1 disks away, move the largest, then move n−1 back. Uses the call stack to track state. Each call adds one frame — max depth = n.</p>
+    <pre><span class="k">void</span> <span class="f">hanoi</span>(<span class="k">int</span> n, src, dst, aux) {
+  <span class="k">if</span> (n == 0) <span class="k">return</span>; <span class="c">// base case</span>
+  <span class="f">hanoi</span>(n-1, src, aux, dst); <span class="c">// phase 1</span>
+  <span class="f">print</span>(<span class="s">"disk n: src→dst"</span>);    <span class="c">// phase 2</span>
+  <span class="f">hanoi</span>(n-1, aux, dst, src); <span class="c">// phase 3</span>
+}</pre>
+  </div>
+  <div class="exp-card iter-c">
+    <h3>Iterative method</h3>
+    <p>Uses a manual stack (array) to simulate the call stack. Pushes sub-problems as frames and processes them without any actual recursion. No function call overhead.</p>
+    <pre><span class="k">void</span> <span class="f">hanoiIter</span>(<span class="k">int</span> n, src, dst, aux) {
+  stack = []; <span class="c">// explicit stack</span>
+  stack.<span class="f">push</span>({n, src, dst, aux});
+  <span class="k">while</span> (stack.length > 0) {
+    frame = stack.<span class="f">pop</span>();
+    <span class="k">if</span> (frame.n == 0) <span class="k">continue</span>;
+    <span class="c">// push 3 operations in reverse</span>
+    stack.<span class="f">push</span>({n-1, aux, dst, src});
+    stack.<span class="f">push</span>({0, src, dst, <span class="s">'MOVE'</span>});
+    stack.<span class="f">push</span>({n-1, src, aux, dst});
+  }
+}</pre>
+  </div>
+</div>
+
+<!-- Logs -->
+<div class="log-card">
+  <div class="log-hdr"><span>Move log</span><span id="log-count" style="color:var(--muted)"></span></div>
+  <div class="logs-wrap">
+    <div class="log-col">
+      <div class="log-col-hdr rec">Recursive</div>
+      <div class="log-area" id="log-rec"></div>
+    </div>
+    <div class="log-col" id="log-iter-col" style="display:none">
+      <div class="log-col-hdr iter">Iterative</div>
+      <div class="log-area iter-area" id="log-iter"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="site-footer">
+  <div class="footer-title">⬡ Tower of Hanoi Visualizer</div>
+  <div class="footer-copy">© 2026 Tower of Hanoi Visualizer &nbsp;|&nbsp;
+    Developed by <span class="footer-names">Sanskar Patil, Shubham Madane, Saif Momin, Sandesh Kurhade</span>
+    &nbsp;|&nbsp; <span class="footer-college">SY CSE · RIT College</span>
+  </div>
+</footer>
+
+</div><!-- .page -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════ */
+const COLORS = ['#5b8dee','#3ecf8e','#e85c5c','#f0c040','#b07ef0','#f07eb0','#70d4f0'];
+const PEG = ['A','B','C'];
+const PNAMES = ['A (Source)','B (Aux)','C (Dest)'];
+
+let n = 3, mode = 'rec';
+let rPegs, iPegs;
+let rMoves, iMoves;
+let rIdx, iIdx;
+let animTimer = null;
+let chart = null;
+let spaceChart = null;
+
+/* ═══════════════════════════════════════════════
+   MOVE GENERATORS
+═══════════════════════════════════════════════ */
+function genRecursive(k, src, dst, aux, arr, depth) {
+  if (k === 0) return;
+  genRecursive(k-1, src, aux, dst, arr, depth+1);
+  arr.push({ disk:k, from:src, to:dst, depth });
+  genRecursive(k-1, aux, dst, src, arr, depth+1);
+}
+
+function genIterative(k, src, dst, aux) {
+  const moves = [];
+  const stack = [{ n:k, src, dst, aux }];
+  while (stack.length > 0) {
+    const f = stack.pop();
+    if (f.n === 0) continue;
+    if (f.move) { moves.push({ disk:f.disk, from:f.from, to:f.to, depth:0 }); continue; }
+    stack.push({ n:f.n-1, src:f.aux, dst:f.dst, aux:f.src });
+    stack.push({ move:true, disk:f.n, from:f.src, to:f.dst });
+    stack.push({ n:f.n-1, src:f.src, dst:f.aux, aux:f.dst });
+  }
+  return moves;
+}
+
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+function init() {
+  clearTimeout(animTimer); animTimer = null;
+  rPegs = [[],[],[]]; iPegs = [[],[],[]];
+  for (let i = n; i >= 1; i--) { rPegs[0].push(i); iPegs[0].push(i); }
+  rMoves = []; iMoves = [];
+  genRecursive(n, 0, 2, 1, rMoves, 0);
+  iMoves = genIterative(n, 0, 2, 1);
+  rIdx = 0; iIdx = 0;
+
+  const total = Math.pow(2,n)-1;
+  document.getElementById('s-total').textContent = total;
+  document.getElementById('s-rmoves').textContent = '0';
+  document.getElementById('s-imoves').textContent = '0';
+  document.getElementById('s-rdepth').textContent = '0';
+  document.getElementById('s-pct').textContent = '0%';
+  document.getElementById('log-rec').innerHTML = '';
+  document.getElementById('log-iter').innerHTML = '';
+  document.getElementById('log-count').textContent = '';
+  document.getElementById('done-overlay').classList.remove('show');
+  document.getElementById('info-rec').innerHTML = 'Press <strong>▶ Solve</strong> to animate the recursive method.';
+  document.getElementById('info-iter').innerHTML = 'Press <strong>▶ Solve</strong> to animate the iterative method.';
+  document.getElementById('solve-btn').disabled = false;
+  document.getElementById('step-btn').disabled = false;
+
+  renderArena('rec'); renderArena('iter');
+  updateChart();
+}
+
+function setN(val) {
+  n = val;
+  document.querySelectorAll('.disk-btn').forEach(b => b.classList.toggle('active', +b.textContent===val));
+  init();
+}
+
+/* ═══════════════════════════════════════════════
+   MODE SWITCHING
+═══════════════════════════════════════════════ */
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.classList.contains(m) || (m==='both' && b.classList.contains('both')));
+  });
+  const recCard = document.getElementById('rec-card');
+  const iterCard = document.getElementById('iter-card');
+  const infoRec = document.getElementById('info-rec');
+  const infoIter = document.getElementById('info-iter');
+  const logIterCol = document.getElementById('log-iter-col');
+  const wrap = document.getElementById('arenas-wrap');
+
+  if (m === 'rec') {
+    recCard.style.display=''; iterCard.style.display='none';
+    infoRec.style.display=''; infoIter.style.display='none';
+    logIterCol.style.display='none'; wrap.classList.remove('solo');
+  } else if (m === 'iter') {
+    recCard.style.display='none'; iterCard.style.display='';
+    infoRec.style.display='none'; infoIter.style.display='';
+    logIterCol.style.display=''; wrap.classList.add('solo');
+  } else {
+    recCard.style.display=''; iterCard.style.display='';
+    infoRec.style.display=''; infoIter.style.display='';
+    logIterCol.style.display=''; wrap.classList.remove('solo');
+  }
+  init();
+}
+
+/* ═══════════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════════ */
+function diskWidth(d, containerW) {
+  const max = Math.min(containerW*0.9, 190);
+  const frac = 0.2 + 0.75*(d/n);
+  return Math.round(frac*max);
+}
+
+function renderArena(which, hlDisk) {
+  const id = which==='rec' ? 'arena-rec' : 'arena-iter';
+  const pegs = which==='rec' ? rPegs : iPegs;
+  const el = document.getElementById(id);
+  el.innerHTML = '';
+  const cw = (el.clientWidth||300)/3 - 8;
+  PNAMES.forEach((name, pi) => {
+    const col = document.createElement('div'); col.className='peg-col';
+    const lbl = document.createElement('div'); lbl.className='peg-name';
+    lbl.innerHTML=`<span>${name}</span>`; col.appendChild(lbl);
+    const stack = document.createElement('div'); stack.className='peg-stack';
+    const rod = document.createElement('div'); rod.className='peg-rod'; stack.appendChild(rod);
+    pegs[pi].forEach(d => {
+      const disk = document.createElement('div');
+      disk.className='disk'+(d===hlDisk?' hl':'');
+      disk.style.width=diskWidth(d,cw)+'px';
+      disk.style.background=COLORS[(d-1)%COLORS.length];
+      disk.textContent=d; stack.appendChild(disk);
+    });
+    col.appendChild(stack);
+    const base=document.createElement('div'); base.className='peg-base';
+    col.appendChild(base); el.appendChild(col);
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   APPLY MOVES
+═══════════════════════════════════════════════ */
+function applyMove(which, hl) {
+  if (which==='rec') {
+    const m = rMoves[rIdx-1];
+    const disk = rPegs[m.from].pop(); rPegs[m.to].push(disk);
+    renderArena('rec', hl?disk:null);
+    document.getElementById('s-rmoves').textContent = rIdx;
+    document.getElementById('s-rdepth').textContent = m.depth;
+    const pct = Math.round((rIdx/rMoves.length)*100);
+    document.getElementById('s-pct').textContent = pct+'%';
+    document.getElementById('info-rec').innerHTML =
+      `Move <strong>${rIdx}</strong>/${rMoves.length}: disk <strong>${disk}</strong> &nbsp;${PEG[m.from]}→${PEG[m.to]} | <code>depth=${m.depth}</code>`;
+    addLog('rec', rIdx, m, disk);
+  } else {
+    const m = iMoves[iIdx-1];
+    const disk = iPegs[m.from].pop(); iPegs[m.to].push(disk);
+    renderArena('iter', hl?disk:null);
+    document.getElementById('s-imoves').textContent = iIdx;
+    document.getElementById('info-iter').innerHTML =
+      `<strong>Move ${iIdx}</strong>/${iMoves.length}: disk <strong>${disk}</strong> &nbsp;${PEG[m.from]}→${PEG[m.to]} | stack-based`;
+    addLog('iter', iIdx, m, disk);
+  }
+  updateChart();
+}
+
+function addLog(which, idx, m, disk) {
+  const area = document.getElementById('log-'+which);
+  const cls = which==='rec'?'cur-r':'cur-g';
+  area.querySelectorAll('.'+cls).forEach(e=>e.classList.remove(cls));
+  const line = document.createElement('div');
+  line.className='log-line '+cls;
+  line.textContent=`${String(idx).padStart(3,' ')}.  D${disk}: ${PEG[m.from]}→${PEG[m.to]}`;
+  area.appendChild(line); area.scrollTop=area.scrollHeight;
+  document.getElementById('log-count').textContent=`${Math.max(rIdx,iIdx)} / ${rMoves.length}`;
+}
+
+/* ═══════════════════════════════════════════════
+   ANIMATION
+═══════════════════════════════════════════════ */
+function speedMs() { return Math.round(750/parseInt(document.getElementById('speed').value)); }
+
+function startSolve() {
+  if (rIdx>=rMoves.length && iIdx>=iMoves.length) init();
+  document.getElementById('solve-btn').disabled=true;
+  document.getElementById('step-btn').disabled=true;
+  function tick() {
+    let done=true;
+    if ((mode==='rec'||mode==='both') && rIdx<rMoves.length) { rIdx++; applyMove('rec',true); done=false; }
+    if ((mode==='iter'||mode==='both') && iIdx<iMoves.length) { iIdx++; applyMove('iter',true); done=false; }
+    if (done) { showDone(); return; }
+    animTimer=setTimeout(tick, speedMs());
+  }
+  animTimer=setTimeout(tick, speedMs());
+}
+
+function doStep() {
+  if (rIdx>=rMoves.length && iIdx>=iMoves.length) { init(); return; }
+  if ((mode==='rec'||mode==='both') && rIdx<rMoves.length) { rIdx++; applyMove('rec',true); }
+  if ((mode==='iter'||mode==='both') && iIdx<iMoves.length) { iIdx++; applyMove('iter',true); }
+  if (rIdx>=rMoves.length && iIdx>=iMoves.length) showDone();
+}
+
+function showDone() {
+  document.getElementById('solve-btn').disabled=false;
+  document.getElementById('solve-btn').textContent='↺ Restart';
+  const overlay=document.getElementById('done-overlay');
+  overlay.classList.add('show');
+  document.getElementById('done-title').textContent='✓ Solved!';
+  document.getElementById('done-sub').innerHTML=
+    `${n} disks · <span style="color:var(--rec)">${rMoves.length}</span> moves &nbsp;|&nbsp; 2<sup>${n}</sup>−1 = ${rMoves.length}<br>Both methods: <span style="color:var(--iter)">identical move count</span>, different internals`;
+  setTimeout(()=>overlay.classList.remove('show'),4500);
+}
+
+/* ═══════════════════════════════════════════════
+   COMPARISON CHART
+═══════════════════════════════════════════════ */
+function buildChart() {
+  const ctx = document.getElementById('compChart').getContext('2d');
+  const labels = [1,2,3,4,5,6,7];
+  const recData  = labels.map(x=>Math.pow(2,x)-1);
+  const iterData = labels.map(x=>Math.pow(2,x)-1);
+  const depthData= labels.map(x=>x);
+
+  chart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: labels.map(x=>`n=${x}`),
+      datasets:[
+        {
+          label:'Recursive moves (2ⁿ−1)',
+          data: recData,
+          backgroundColor: 'rgba(91,141,238,0.55)',
+          borderColor: 'rgba(91,141,238,0.9)',
+          borderWidth: 1.5,
+          borderRadius: 4,
+          order: 2
+        },
+        {
+          label:'Iterative moves (2ⁿ−1)',
+          data: iterData,
+          backgroundColor: 'rgba(62,207,142,0.35)',
+          borderColor: 'rgba(62,207,142,0.9)',
+          borderWidth: 1.5,
+          borderRadius: 4,
+          order: 3
+        },
+        {
+          label:'Recursive stack depth (n)',
+          data: depthData,
+          type:'line',
+          borderColor: 'rgba(240,192,64,0.9)',
+          backgroundColor: 'rgba(240,192,64,0.12)',
+          borderWidth: 2,
+          pointBackgroundColor: 'rgba(240,192,64,1)',
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.35,
+          fill: true,
+          order: 1,
+          yAxisID: 'y2'
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{
+          backgroundColor:'rgba(17,17,22,0.95)',
+          borderColor:'rgba(255,255,255,0.1)',
+          borderWidth:1,
+          titleColor:'#dddde8',
+          bodyColor:'#7a7a9a',
+          padding:10,
+          titleFont:{ family:"'IBM Plex Mono', monospace", size:11 },
+          bodyFont:{ family:"'IBM Plex Mono', monospace", size:11 },
+        }
+      },
+      scales:{
+        x:{
+          ticks:{ color:'#5a5a70', font:{ family:"'IBM Plex Mono',monospace", size:11 } },
+          grid:{ color:'rgba(255,255,255,0.04)' },
+          border:{ color:'rgba(255,255,255,0.08)' }
+        },
+        y:{
+          ticks:{ color:'#5a5a70', font:{ family:"'IBM Plex Mono',monospace", size:11 }, maxTicksLimit:6 },
+          grid:{ color:'rgba(255,255,255,0.04)' },
+          border:{ color:'rgba(255,255,255,0.08)' },
+          title:{ display:true, text:'Total moves (2ⁿ−1)', color:'#5a5a70', font:{ family:"'IBM Plex Mono',monospace", size:10 } }
+        },
+        y2:{
+          position:'right',
+          ticks:{ color:'rgba(240,192,64,0.7)', font:{ family:"'IBM Plex Mono',monospace", size:11 } },
+          grid:{ drawOnChartArea:false },
+          border:{ color:'rgba(240,192,64,0.2)' },
+          title:{ display:true, text:'Stack depth (n)', color:'rgba(240,192,64,0.7)', font:{ family:"'IBM Plex Mono',monospace", size:10 } }
+        }
+      }
+    }
+  });
+}
+
+function updateChart() {
+  if (!chart) return;
+  const idx = n-1;
+  // Highlight the current n bar with full opacity, others dimmed
+  chart.data.datasets[0].backgroundColor = chart.data.datasets[0].data.map((_,i)=>
+    i===idx?'rgba(91,141,238,0.9)':'rgba(91,141,238,0.3)');
+  chart.data.datasets[1].backgroundColor = chart.data.datasets[1].data.map((_,i)=>
+    i===idx?'rgba(62,207,142,0.75)':'rgba(62,207,142,0.15)');
+  chart.data.datasets[2].pointRadius = chart.data.datasets[2].data.map((_,i)=>i===idx?7:3);
+  chart.data.datasets[2].pointBackgroundColor = chart.data.datasets[2].data.map((_,i)=>
+    i===idx?'rgba(240,192,64,1)':'rgba(240,192,64,0.5)');
+  chart.update('none');
+  updateSpaceChart();
+}
+
+function buildSpaceChart() {
+  const ctx = document.getElementById('spaceChart').getContext('2d');
+  const labels = [1,2,3,4,5,6,7];
+  const recSpace  = labels.map(x => x);       // O(n): call stack grows with n
+  const iterSpace = labels.map(() => 1);       // O(1): always constant (3 vars + step counter)
+
+  spaceChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels.map(x => `n=${x}`),
+      datasets: [
+        {
+          label: 'Recursive — call stack depth O(n)',
+          data: recSpace,
+          backgroundColor: 'rgba(91,141,238,0.55)',
+          borderColor: 'rgba(91,141,238,0.9)',
+          borderWidth: 1.5,
+          borderRadius: 5,
+          barPercentage: 0.45,
+          categoryPercentage: 0.8,
+          order: 2
+        },
+        {
+          label: 'Iterative — constant space O(1)',
+          data: iterSpace,
+          backgroundColor: 'rgba(62,207,142,0.45)',
+          borderColor: 'rgba(62,207,142,0.9)',
+          borderWidth: 1.5,
+          borderRadius: 5,
+          barPercentage: 0.45,
+          categoryPercentage: 0.8,
+          order: 3
+        },
+        {
+          label: 'Recursive O(n) growth',
+          data: labels,
+          type: 'line',
+          borderColor: 'rgba(91,141,238,0.7)',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [5,4],
+          pointBackgroundColor: 'rgba(91,141,238,1)',
+          pointRadius: 3,
+          tension: 0.1,
+          fill: false,
+          order: 1,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Iterative O(1) flat',
+          data: labels.map(() => 1),
+          type: 'line',
+          borderColor: 'rgba(62,207,142,0.7)',
+          backgroundColor: 'rgba(62,207,142,0.06)',
+          borderWidth: 2,
+          borderDash: [5,4],
+          pointRadius: 0,
+          tension: 0,
+          fill: true,
+          order: 0,
+          yAxisID: 'y'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(17,17,22,0.95)',
+          borderColor: 'rgba(255,255,255,0.1)',
+          borderWidth: 1,
+          titleColor: '#dddde8',
+          bodyColor: '#7a7a9a',
+          padding: 10,
+          titleFont: { family:"'IBM Plex Mono', monospace", size:11 },
+          bodyFont:  { family:"'IBM Plex Mono', monospace", size:11 },
+          callbacks: {
+            label: ctx => {
+              if (ctx.datasetIndex >= 2) return null; // hide trendline entries
+              const labels = ['Recursive call stack', 'Iterative space'];
+              const units  = [' frames (O(n))', ' unit (O(1))'];
+              return ` ${labels[ctx.datasetIndex]}: ${ctx.parsed.y}${units[ctx.datasetIndex]}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color:'#5a5a70', font:{ family:"'IBM Plex Mono',monospace", size:11 } },
+          grid:  { color:'rgba(255,255,255,0.04)' },
+          border:{ color:'rgba(255,255,255,0.08)' }
+        },
+        y: {
+          min: 0, max: 8,
+          ticks: { color:'#5a5a70', font:{ family:"'IBM Plex Mono',monospace", size:11 }, stepSize:1 },
+          grid:  { color:'rgba(255,255,255,0.04)' },
+          border:{ color:'rgba(255,255,255,0.08)' },
+          title: { display:true, text:'Auxiliary space (units)', color:'#5a5a70', font:{ family:"'IBM Plex Mono',monospace", size:10 } }
+        }
+      }
+    }
+  });
+}
+
+function updateSpaceChart() {
+  if (!spaceChart) return;
+  const idx = n - 1;
+  // Recursive bars — highlight current n
+  spaceChart.data.datasets[0].backgroundColor = spaceChart.data.datasets[0].data.map((_,i) =>
+    i===idx ? 'rgba(91,141,238,0.95)' : 'rgba(91,141,238,0.22)');
+  // Iterative bars — flat O(1), all stay same height, highlight current
+  spaceChart.data.datasets[1].backgroundColor = spaceChart.data.datasets[1].data.map((_,i) =>
+    i===idx ? 'rgba(62,207,142,0.9)' : 'rgba(62,207,142,0.2)');
+  // Recursive trendline points
+  spaceChart.data.datasets[2].pointRadius = spaceChart.data.datasets[2].data.map((_,i) => i===idx?7:3);
+  spaceChart.data.datasets[2].pointBackgroundColor = spaceChart.data.datasets[2].data.map((_,i) =>
+    i===idx ? 'rgba(91,141,238,1)' : 'rgba(91,141,238,0.4)');
+  spaceChart.update('none');
+}
+
+/* ═══════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════ */
+window.addEventListener('load', ()=>{
+  buildChart();
+  buildSpaceChart();
+  init();
+});
+</script>
+</body>
+</html>
